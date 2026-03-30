@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo } from "react";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+const lerp = (start, end, ratio) => start + (end - start) * clamp(ratio, 0, 1);
 
 const toPercent = (value, min, max) => {
   if (max <= min) {
@@ -51,12 +52,15 @@ const toColorMixRatio = (
 };
 
 const TICK_STEP = 2;
+const CAMERA_START_SCALE = 1.24;
+const CAMERA_MAX_TRACK_X = 360;
 
 export const DemoMotionScene = ({
   minPercent,
   maxPercent,
   majorTickValues,
   handleLeftPercent,
+  phaseOneProgress,
   progress,
   onAutoLayoutReady,
 }) => {
@@ -78,7 +82,12 @@ export const DemoMotionScene = ({
   );
   const safeMajorTickValues = Array.isArray(majorTickValues) ? majorTickValues : [];
   const safeHandleLeft = clamp(handleLeftPercent ?? 50, minPercent, maxPercent);
+  const safePhaseOneProgress = clamp(phaseOneProgress ?? 1, 0, 1);
+  const cameraPullbackT = smoothstep(safePhaseOneProgress);
+  const cameraScale = lerp(CAMERA_START_SCALE, 1, cameraPullbackT);
+  const cameraFollowWeight = 1 - cameraPullbackT;
   const handleRatio = clamp(toPercent(safeHandleLeft, minPercent, maxPercent) / 100, 0, 1);
+  const cameraTranslateX = (0.5 - handleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraFollowWeight;
   const colorMixRatio = toColorMixRatio(handleRatio);
   const safeProgress = clamp(progress ?? 0, 0, 1);
   const currentPercent = Math.round(safeHandleLeft);
@@ -88,7 +97,7 @@ export const DemoMotionScene = ({
   const handleTopColor = mixHex(currentPercentColor, "#ffffff", 0.22);
   const handleBottomColor = mixHex(currentPercentColor, "#0f172a", 0.16);
   const phase = safeProgress * Math.PI * 2;
-  const tiltRotateY = Math.sin(phase) * 7.5;
+  const tiltRotateY = lerp(20, 0, safePhaseOneProgress);
   const tiltRotateX = Math.cos(phase + Math.PI * 0.1) * 4.25;
   const tiltTranslateY = Math.sin(phase * 2 - Math.PI * 0.25) * 3.5;
   const tiltScale = 1 + Math.cos(phase) * 0.006;
@@ -99,7 +108,13 @@ export const DemoMotionScene = ({
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-transparent">
-      <div className="absolute inset-0 flex items-center justify-center px-[8%] py-[8%]">
+      <div
+        className="absolute inset-0 flex items-center justify-center px-[8%] py-[8%]"
+        style={{
+          transform: `translate3d(${cameraTranslateX}px, 0, 0) scale(${cameraScale})`,
+          transformOrigin: "50% 50%",
+        }}
+      >
         <div className="w-full max-w-[920px]">
           <div className="pb-15" style={{ perspective: 1100 }}>
             <div

@@ -172,11 +172,11 @@ export const buildDemoMotionSceneProps = ({
 
   const phaseOneEndFrame = phaseOneFrames - 1;
   const pauseEndFrame = phaseOneFrames + pauseFrames - 1;
+  const phaseOneProgress = safeFrame <= phaseOneEndFrame ? toProgress01(safeFrame, phaseOneFrames) : 1;
 
   let handleLeftPercent = startPercent;
   if (safeFrame <= phaseOneEndFrame) {
-    const phaseProgress = toProgress01(safeFrame, phaseOneFrames);
-    const eased = easeOutPow(phaseProgress, resolvedContext.phaseOneEasePower);
+    const eased = easeOutPow(phaseOneProgress, resolvedContext.phaseOneEasePower);
     handleLeftPercent = startPercent + (phaseOneTargetPercent - startPercent) * eased;
   } else if (safeFrame <= pauseEndFrame) {
     handleLeftPercent = phaseOneTargetPercent;
@@ -201,6 +201,7 @@ export const buildDemoMotionSceneProps = ({
     durationInFrames,
     frame: safeFrame,
     progress,
+    phaseOneProgress,
     handleLeftPercent: clamp(handleLeftPercent, startPercent, endPercent),
   };
 };

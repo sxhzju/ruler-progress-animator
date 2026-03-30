@@ -30,7 +30,7 @@ export const DEFAULT_DEMO_MOTION_PROPS = Object.freeze({
   phaseOneEasePower: 3,
   phaseTwoEaseType: "easeOut",
   phaseTwoEasePower: 1.5,
-  majorTickValues: Object.freeze([0, 50, 100]),
+  majorTickValues: Object.freeze([0, 20, 40, 60, 80, 100]),
 });
 
 export const DEMO_MOTION_PARAM_FIELDS = Object.freeze([
