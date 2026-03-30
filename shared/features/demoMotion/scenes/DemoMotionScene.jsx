@@ -30,6 +30,26 @@ const mixHex = (startHex, endHex, ratio) => {
   )}`;
 };
 
+const WARM_START_RATIO = 0.6;
+const COOL_COLOR = "#1d4ed8";
+const WARM_COLOR = "#f28a58";
+const PREWARM_RATIO_MAX = 0.24;
+const smoothstep = (t) => {
+  const x = clamp(t, 0, 1);
+  return x * x * (3 - 2 * x);
+};
+const toColorMixRatio = (
+  ratio,
+  warmStart = WARM_START_RATIO,
+  prewarmRatioMax = PREWARM_RATIO_MAX
+) => {
+  const earlyT = clamp(ratio / Math.max(0.0001, warmStart), 0, 1);
+  const earlyRatio = smoothstep(earlyT) * prewarmRatioMax;
+  const lateT = clamp((ratio - warmStart) / Math.max(0.0001, 1 - warmStart), 0, 1);
+  const lateRatio = smoothstep(lateT);
+  return earlyRatio + (1 - prewarmRatioMax) * lateRatio;
+};
+
 const TICK_STEP = 2;
 
 export const DemoMotionScene = ({
@@ -57,10 +77,16 @@ export const DemoMotionScene = ({
     [majorTickValues]
   );
   const safeMajorTickValues = Array.isArray(majorTickValues) ? majorTickValues : [];
-  const safeHandleLeft = clamp(handleLeftPercent ?? 50, 0, 100);
+  const safeHandleLeft = clamp(handleLeftPercent ?? 50, minPercent, maxPercent);
+  const handleRatio = clamp(toPercent(safeHandleLeft, minPercent, maxPercent) / 100, 0, 1);
+  const colorMixRatio = toColorMixRatio(handleRatio);
   const safeProgress = clamp(progress ?? 0, 0, 1);
   const currentPercent = Math.round(safeHandleLeft);
-  const currentPercentColor = mixHex("#daedf8", "#f28a58", safeHandleLeft / 100);
+  const currentPercentColor = mixHex(COOL_COLOR, WARM_COLOR, colorMixRatio);
+  const rulerTopColor = mixHex(currentPercentColor, "#ffffff", 0.3);
+  const rulerBottomColor = mixHex(currentPercentColor, "#0f172a", 0.12);
+  const handleTopColor = mixHex(currentPercentColor, "#ffffff", 0.22);
+  const handleBottomColor = mixHex(currentPercentColor, "#0f172a", 0.16);
   const phase = safeProgress * Math.PI * 2;
   const tiltRotateY = Math.sin(phase) * 7.5;
   const tiltRotateX = Math.cos(phase + Math.PI * 0.1) * 4.25;
@@ -87,8 +113,7 @@ export const DemoMotionScene = ({
               <div
                 className="relative h-[90px] rounded-[24px] px-10 shadow-[0_0_0_0.66px_rgba(0,0,0,0.09),0_12px_25px_rgba(0,0,0,0.08),0_4px_10px_rgba(0,0,0,0.03)]"
                 style={{
-                  background:
-                    "linear-gradient(90deg, #daedf8 0%, #fcf9f5 50%, #fcf9f5 56%, #f28a58 100%)",
+                  background: `linear-gradient(180deg, ${rulerTopColor} 0%, ${rulerBottomColor} 100%)`,
                   boxShadow:
                     "inset 0 0 0 5px rgba(255,255,255,0.92), 0 0 0 0.66px rgba(0,0,0,0.1), 0 12px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.03)",
                 }}
@@ -110,7 +135,7 @@ export const DemoMotionScene = ({
                     return (
                       <div
                         key={value}
-                        className="absolute bottom-0 w-[2px] rounded-full bg-slate-500/45"
+                        className="absolute bottom-0 w-[2px] rounded-full bg-white/78"
                         style={{
                           left: `${left}%`,
                           height: longTick ? 21 : 14,
@@ -122,9 +147,10 @@ export const DemoMotionScene = ({
                 </div>
 
                 <div
-                  className="absolute top-1/2 h-[96px] w-[28px] -translate-y-1/2 rounded-[10px] bg-[#87b9ff] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
+                  className="absolute top-1/2 h-[96px] w-[28px] -translate-y-1/2 rounded-[10px] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
                   style={{
-                    left: `calc(${safeHandleLeft}% - 14px)`,
+                    left: `calc(${toPercent(safeHandleLeft, minPercent, maxPercent)}% - 14px)`,
+                    background: `linear-gradient(180deg, ${handleTopColor} 0%, ${handleBottomColor} 100%)`,
                   }}
                 >
                   <div
@@ -139,7 +165,10 @@ export const DemoMotionScene = ({
                 </div>
               </div>
 
-              <div className="relative mt-4 h-7 text-[19px] font-semibold tracking-[-0.015em] text-slate-700/90">
+              <div
+                className="relative mt-4 h-7 text-[19px] font-semibold tracking-[-0.015em] text-white/92"
+                style={{ textShadow: "0 1px 4px rgba(15,23,42,0.5)" }}
+              >
                 {safeMajorTickValues.map((value) => (
                   <div
                     key={value}
