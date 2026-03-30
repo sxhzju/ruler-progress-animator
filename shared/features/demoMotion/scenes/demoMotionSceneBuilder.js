@@ -66,6 +66,43 @@ const resolvePhaseTimingFrames = ({ fps, sceneContext }) => {
   };
 };
 
+const resolveHandleLeftPercentForFrame = ({
+  frame,
+  phaseOneFrames,
+  pauseFrames,
+  phaseTwoFrames,
+  startPercent,
+  phaseOneTargetPercent,
+  endPercent,
+  phaseOneEasePower,
+  phaseTwoEaseType,
+  phaseTwoEasePower,
+}) => {
+  const safeFrame = Math.max(0, Math.round(Number(frame) || 0));
+  const phaseOneEndFrame = phaseOneFrames - 1;
+  const pauseEndFrame = phaseOneFrames + pauseFrames - 1;
+
+  if (safeFrame <= phaseOneEndFrame) {
+    const phaseOneProgress = toProgress01(safeFrame, phaseOneFrames);
+    const eased = easeOutPow(phaseOneProgress, phaseOneEasePower);
+    return startPercent + (phaseOneTargetPercent - startPercent) * eased;
+  }
+
+  if (safeFrame <= pauseEndFrame) {
+    return phaseOneTargetPercent;
+  }
+
+  const phaseTwoFrame = safeFrame - (pauseEndFrame + 1);
+  const phaseProgress = toProgress01(phaseTwoFrame, phaseTwoFrames);
+  const eased =
+    phaseTwoEaseType === "linear"
+      ? phaseProgress
+      : phaseTwoEaseType === "easeInOut"
+        ? easeInOutPow(phaseProgress, phaseTwoEasePower)
+        : easeOutPow(phaseProgress, phaseTwoEasePower);
+  return phaseOneTargetPercent + (endPercent - phaseOneTargetPercent) * eased;
+};
+
 export const resolveDemoMotionSceneContext = (pluginParams = {}) => {
   const videoWidth = toInt(pluginParams.videoWidth, DEFAULT_DEMO_MOTION_PROPS.videoWidth, 256, 3840);
   const videoHeight = toInt(
@@ -173,28 +210,53 @@ export const buildDemoMotionSceneProps = ({
   const phaseOneEndFrame = phaseOneFrames - 1;
   const pauseEndFrame = phaseOneFrames + pauseFrames - 1;
   const phaseOneProgress = safeFrame <= phaseOneEndFrame ? toProgress01(safeFrame, phaseOneFrames) : 1;
+  const phaseTwoEaseType = normalizeEaseType(
+    resolvedContext.phaseTwoEaseType,
+    DEFAULT_DEMO_MOTION_PROPS.phaseTwoEaseType
+  );
 
-  let handleLeftPercent = startPercent;
-  if (safeFrame <= phaseOneEndFrame) {
-    const eased = easeOutPow(phaseOneProgress, resolvedContext.phaseOneEasePower);
-    handleLeftPercent = startPercent + (phaseOneTargetPercent - startPercent) * eased;
-  } else if (safeFrame <= pauseEndFrame) {
-    handleLeftPercent = phaseOneTargetPercent;
-  } else {
-    const phaseTwoFrame = safeFrame - (pauseEndFrame + 1);
-    const phaseProgress = toProgress01(phaseTwoFrame, phaseTwoFrames);
-    const phaseTwoEaseType = normalizeEaseType(
-      resolvedContext.phaseTwoEaseType,
-      DEFAULT_DEMO_MOTION_PROPS.phaseTwoEaseType
-    );
-    const eased =
-      phaseTwoEaseType === "linear"
-        ? phaseProgress
-        : phaseTwoEaseType === "easeInOut"
-          ? easeInOutPow(phaseProgress, resolvedContext.phaseTwoEasePower)
-          : easeOutPow(phaseProgress, resolvedContext.phaseTwoEasePower);
-    handleLeftPercent = phaseOneTargetPercent + (endPercent - phaseOneTargetPercent) * eased;
-  }
+  const handleLeftPercent = resolveHandleLeftPercentForFrame({
+    frame: safeFrame,
+    phaseOneFrames,
+    pauseFrames,
+    phaseTwoFrames,
+    startPercent,
+    phaseOneTargetPercent,
+    endPercent,
+    phaseOneEasePower: resolvedContext.phaseOneEasePower,
+    phaseTwoEaseType,
+    phaseTwoEasePower: resolvedContext.phaseTwoEasePower,
+  });
+
+  const phaseTwoStartFrame = pauseEndFrame + 1;
+  const cameraMotionStartFrame =
+    pauseFrames > 0 ? phaseOneFrames + Math.floor((pauseFrames * 2) / 3) : phaseTwoStartFrame;
+  const rawCameraMotionEndFrame =
+    phaseTwoStartFrame + Math.floor((Math.max(1, phaseTwoFrames) - 1) * (2 / 3));
+  const cameraMotionEndFrame = Math.max(cameraMotionStartFrame, rawCameraMotionEndFrame);
+  const cameraTrackedFrame = clamp(safeFrame, cameraMotionStartFrame, cameraMotionEndFrame);
+  const cameraReengageProgress =
+    cameraMotionEndFrame <= cameraMotionStartFrame
+      ? safeFrame >= cameraMotionEndFrame
+        ? 1
+        : 0
+      : clamp(
+          (safeFrame - cameraMotionStartFrame) / (cameraMotionEndFrame - cameraMotionStartFrame),
+          0,
+          1
+        );
+  const cameraTrackedHandleLeftPercent = resolveHandleLeftPercentForFrame({
+    frame: cameraTrackedFrame,
+    phaseOneFrames,
+    pauseFrames,
+    phaseTwoFrames,
+    startPercent,
+    phaseOneTargetPercent,
+    endPercent,
+    phaseOneEasePower: resolvedContext.phaseOneEasePower,
+    phaseTwoEaseType,
+    phaseTwoEasePower: resolvedContext.phaseTwoEasePower,
+  });
 
   return {
     ...resolvedContext,
@@ -202,6 +264,8 @@ export const buildDemoMotionSceneProps = ({
     frame: safeFrame,
     progress,
     phaseOneProgress,
+    cameraReengageProgress,
+    cameraTrackedHandleLeftPercent,
     handleLeftPercent: clamp(handleLeftPercent, startPercent, endPercent),
   };
 };

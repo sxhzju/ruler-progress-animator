@@ -31,35 +31,49 @@ const mixHex = (startHex, endHex, ratio) => {
   )}`;
 };
 
-const WARM_START_RATIO = 0.6;
 const COOL_COLOR = "#1d4ed8";
-const WARM_COLOR = "#f28a58";
-const PREWARM_RATIO_MAX = 0.24;
+const PHASE_ONE_TARGET_COLOR = "#dd6c67";
+const PHASE_TWO_TARGET_COLOR = "#ff3b1f";
+const PHASE_TWO_PEAK_COLOR = "#ff2a12";
+const PHASE_TWO_RED_BOOST_START = 0.78;
+const PHASE_TWO_RED_BOOST_GAMMA = 1.9;
 const smoothstep = (t) => {
   const x = clamp(t, 0, 1);
   return x * x * (3 - 2 * x);
 };
-const toColorMixRatio = (
-  ratio,
-  warmStart = WARM_START_RATIO,
-  prewarmRatioMax = PREWARM_RATIO_MAX
-) => {
-  const earlyT = clamp(ratio / Math.max(0.0001, warmStart), 0, 1);
-  const earlyRatio = smoothstep(earlyT) * prewarmRatioMax;
-  const lateT = clamp((ratio - warmStart) / Math.max(0.0001, 1 - warmStart), 0, 1);
-  const lateRatio = smoothstep(lateT);
-  return earlyRatio + (1 - prewarmRatioMax) * lateRatio;
+const toAnchoredColor = (ratio, anchorRatio) => {
+  const safeRatio = clamp(ratio, 0, 1);
+  const safeAnchorRatio = clamp(anchorRatio, 0.05, 0.95);
+
+  if (safeRatio <= safeAnchorRatio) {
+    const t = safeRatio / safeAnchorRatio;
+    return mixHex(COOL_COLOR, PHASE_ONE_TARGET_COLOR, smoothstep(t));
+  }
+
+  const tRaw = clamp((safeRatio - safeAnchorRatio) / (1 - safeAnchorRatio), 0, 1);
+  const t = tRaw ** PHASE_TWO_RED_BOOST_GAMMA;
+  const boostT = clamp(
+    (tRaw - PHASE_TWO_RED_BOOST_START) / Math.max(0.0001, 1 - PHASE_TWO_RED_BOOST_START),
+    0,
+    1
+  );
+  const boostedWarm = mixHex(PHASE_TWO_TARGET_COLOR, PHASE_TWO_PEAK_COLOR, smoothstep(boostT));
+  return mixHex(PHASE_ONE_TARGET_COLOR, boostedWarm, t);
 };
 
 const TICK_STEP = 2;
-const CAMERA_START_SCALE = 1.24;
-const CAMERA_MAX_TRACK_X = 360;
+const CAMERA_START_SCALE = 1.34;
+const CAMERA_MAX_TRACK_X = 460;
+const CAMERA_REENGAGE_END_SCALE = 1.18;
 
 export const DemoMotionScene = ({
   minPercent,
   maxPercent,
   majorTickValues,
   handleLeftPercent,
+  cameraTrackedHandleLeftPercent,
+  cameraReengageProgress,
+  phaseOneTargetPercent,
   phaseOneProgress,
   progress,
   onAutoLayoutReady,
@@ -82,16 +96,31 @@ export const DemoMotionScene = ({
   );
   const safeMajorTickValues = Array.isArray(majorTickValues) ? majorTickValues : [];
   const safeHandleLeft = clamp(handleLeftPercent ?? 50, minPercent, maxPercent);
+  const safeTrackedHandleLeft = clamp(
+    cameraTrackedHandleLeftPercent ?? safeHandleLeft,
+    minPercent,
+    maxPercent
+  );
   const safePhaseOneProgress = clamp(phaseOneProgress ?? 1, 0, 1);
+  const safeCameraReengageProgress = clamp(cameraReengageProgress ?? 0, 0, 1);
   const cameraPullbackT = smoothstep(safePhaseOneProgress);
-  const cameraScale = lerp(CAMERA_START_SCALE, 1, cameraPullbackT);
+  const cameraReengageT = smoothstep(safeCameraReengageProgress);
+  const cameraScale = lerp(CAMERA_START_SCALE, 1, cameraPullbackT)
+    * lerp(1, CAMERA_REENGAGE_END_SCALE, cameraReengageT);
   const cameraFollowWeight = 1 - cameraPullbackT;
   const handleRatio = clamp(toPercent(safeHandleLeft, minPercent, maxPercent) / 100, 0, 1);
-  const cameraTranslateX = (0.5 - handleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraFollowWeight;
-  const colorMixRatio = toColorMixRatio(handleRatio);
+  const trackedHandleRatio = clamp(toPercent(safeTrackedHandleLeft, minPercent, maxPercent) / 100, 0, 1);
+  const phaseOneAnchorRatio = clamp(
+    toPercent(phaseOneTargetPercent ?? 70, minPercent, maxPercent) / 100,
+    0,
+    1
+  );
+  const cameraTranslateX =
+    (0.5 - handleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraFollowWeight
+    + (0.5 - trackedHandleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraReengageT;
   const safeProgress = clamp(progress ?? 0, 0, 1);
   const currentPercent = Math.round(safeHandleLeft);
-  const currentPercentColor = mixHex(COOL_COLOR, WARM_COLOR, colorMixRatio);
+  const currentPercentColor = toAnchoredColor(handleRatio, phaseOneAnchorRatio);
   const rulerTopColor = mixHex(currentPercentColor, "#ffffff", 0.3);
   const rulerBottomColor = mixHex(currentPercentColor, "#0f172a", 0.12);
   const handleTopColor = mixHex(currentPercentColor, "#ffffff", 0.22);
