@@ -54,6 +54,7 @@ export const getDemoMotionDurationInFrames = ({ fps, sceneContext, pluginParams 
 };
 
 export const buildDemoMotionSceneProps = ({
+  frame,
   fps,
   sceneContext,
   pluginParams,
@@ -65,14 +66,19 @@ export const buildDemoMotionSceneProps = ({
     resolvedContext.maxPercent
   );
 
+  const durationInFrames = getDemoMotionDurationInFrames({
+    fps,
+    sceneContext: resolvedContext,
+  });
+  const safeFrame = clamp(Math.round(Number(frame) || 0), 0, Math.max(0, durationInFrames - 1));
+  const progress =
+    durationInFrames <= 1 ? 0 : safeFrame / Math.max(1, durationInFrames - 1);
+
   return {
     ...resolvedContext,
-    durationInFrames: getDemoMotionDurationInFrames({
-      fps,
-      sceneContext: resolvedContext,
-    }),
-    frame: 0,
-    progress: 0,
+    durationInFrames,
+    frame: safeFrame,
+    progress,
     cursorPercent: safeCursorPercent,
     handleLeftPercent: safeCursorPercent,
   };
