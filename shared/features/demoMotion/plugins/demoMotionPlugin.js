@@ -12,7 +12,7 @@ import {
 
 export const demoMotionPlugin = Object.freeze({
   id: "demo-motion",
-  controlPanelTitle: "Temperature Slider Controls",
+  controlPanelTitle: "Slider Controls",
   paramFields: DEMO_MOTION_PARAM_FIELDS,
   defaultProps: DEFAULT_DEMO_MOTION_PROPS,
   SceneComponent: DemoMotionScene,

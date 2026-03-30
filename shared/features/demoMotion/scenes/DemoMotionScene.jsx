@@ -9,12 +9,32 @@ const toPercent = (value, min, max) => {
   return ((value - min) / (max - min)) * 100;
 };
 
-const TICK_STEP = 100;
+const hexToRgb = (hex) => {
+  const normalized = hex.replace("#", "");
+  const value = normalized.length === 3 ? normalized.split("").map((x) => `${x}${x}`).join("") : normalized;
+  return {
+    r: Number.parseInt(value.slice(0, 2), 16),
+    g: Number.parseInt(value.slice(2, 4), 16),
+    b: Number.parseInt(value.slice(4, 6), 16),
+  };
+};
+
+const mixHex = (startHex, endHex, ratio) => {
+  const start = hexToRgb(startHex);
+  const end = hexToRgb(endHex);
+  const t = clamp(ratio, 0, 1);
+  const toHex = (channel) => Math.round(channel).toString(16).padStart(2, "0");
+
+  return `#${toHex(start.r + (end.r - start.r) * t)}${toHex(start.g + (end.g - start.g) * t)}${toHex(
+    start.b + (end.b - start.b) * t
+  )}`;
+};
+
+const TICK_STEP = 2;
 
 export const DemoMotionScene = ({
-  kelvin,
-  minKelvin,
-  maxKelvin,
+  minPercent,
+  maxPercent,
   majorTickValues,
   handleLeftPercent,
   onAutoLayoutReady,
@@ -25,11 +45,11 @@ export const DemoMotionScene = ({
 
   const ticks = useMemo(() => {
     const result = [];
-    for (let value = minKelvin; value <= maxKelvin; value += TICK_STEP) {
+    for (let value = minPercent; value <= maxPercent; value += TICK_STEP) {
       result.push(value);
     }
     return result;
-  }, [maxKelvin, minKelvin]);
+  }, [maxPercent, minPercent]);
 
   const majorTickSet = useMemo(
     () => new Set(Array.isArray(majorTickValues) ? majorTickValues : []),
@@ -37,6 +57,8 @@ export const DemoMotionScene = ({
   );
   const safeMajorTickValues = Array.isArray(majorTickValues) ? majorTickValues : [];
   const safeHandleLeft = clamp(handleLeftPercent ?? 50, 0, 100);
+  const currentPercent = Math.round(safeHandleLeft);
+  const currentPercentColor = mixHex("#daedf8", "#f28a58", safeHandleLeft / 100);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-transparent">
@@ -47,14 +69,14 @@ export const DemoMotionScene = ({
               className="relative h-[90px] rounded-[24px] px-10 shadow-[0_0_0_0.66px_rgba(0,0,0,0.09),0_12px_25px_rgba(0,0,0,0.08),0_4px_10px_rgba(0,0,0,0.03)]"
               style={{
                 background:
-                  "linear-gradient(90deg, #fcc47b 0%, #fcf9f5 50%, #fcf9f5 56%, #daedf8 100%)",
+                  "linear-gradient(90deg, #daedf8 0%, #fcf9f5 50%, #fcf9f5 56%, #f28a58 100%)",
                 boxShadow:
                   "inset 0 0 0 5px rgba(255,255,255,0.92), 0 0 0 0.66px rgba(0,0,0,0.1), 0 12px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.03)",
               }}
             >
               <div className="absolute inset-x-10 bottom-[10px] top-[10px]">
                 {ticks.map((value, index) => {
-                  const left = toPercent(value, minKelvin, maxKelvin);
+                  const left = toPercent(value, minPercent, maxPercent);
                   const isMajor = majorTickSet.has(value);
                   const longTick = isMajor || index % 4 === 0;
 
@@ -73,11 +95,21 @@ export const DemoMotionScene = ({
               </div>
 
               <div
-                className="absolute top-1/2 h-[47px] w-[28px] -translate-y-1/2 rounded-[10px] bg-[#87b9ff] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
+                className="absolute top-1/2 h-[96px] w-[28px] -translate-y-1/2 rounded-[10px] bg-[#87b9ff] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
                 style={{
                   left: `calc(${safeHandleLeft}% - 14px)`,
                 }}
-              />
+              >
+                <div
+                  className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 whitespace-nowrap text-[30px] font-black tracking-[-0.02em]"
+                  style={{
+                    color: currentPercentColor,
+                    textShadow: "0 2px 6px rgba(15,23,42,0.38)",
+                  }}
+                >
+                  {currentPercent}%
+                </div>
+              </div>
             </div>
 
             <div className="relative mt-4 h-7 text-[19px] font-semibold tracking-[-0.015em] text-slate-700/90">
@@ -86,19 +118,15 @@ export const DemoMotionScene = ({
                   key={value}
                   className="absolute whitespace-nowrap"
                   style={{
-                    left: `${toPercent(value, minKelvin, maxKelvin)}%`,
+                    left: `${toPercent(value, minPercent, maxPercent)}%`,
                     transform: "translateX(-50%)",
                   }}
                 >
-                  {value}
-                  K
+                  {Math.round(toPercent(value, minPercent, maxPercent))}%
                 </div>
               ))}
             </div>
 
-            <div className="mt-7 inline-flex items-center rounded-full border border-slate-400/30 bg-white/72 px-5 py-2 text-[1rem] font-semibold text-slate-700 shadow-[0_6px_16px_rgba(15,23,42,0.12)] backdrop-blur">
-              Current: {Math.round(kelvin)}K
-            </div>
           </div>
         </div>
       </div>

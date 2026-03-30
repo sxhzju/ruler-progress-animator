@@ -15,21 +15,20 @@ export const DEFAULT_DEMO_MOTION_PROPS = Object.freeze({
   videoWidth: 1080,
   videoHeight: 1080,
   durationSeconds: 6,
-  kelvin: 4900,
-  minKelvin: 2600,
-  baseKelvin: 4900,
-  maxKelvin: 6600,
-  majorTickValues: Object.freeze([2700, 4900, 6500]),
+  cursorPercent: 50,
+  minPercent: 0,
+  maxPercent: 100,
+  majorTickValues: Object.freeze([0, 50, 100]),
 });
 
 export const DEMO_MOTION_PARAM_FIELDS = Object.freeze([
   {
-    key: "kelvin",
-    label: "kelvin",
+    key: "cursorPercent",
+    label: "cursorPercent",
     control: "number",
-    min: 2600,
-    max: 6600,
-    step: 100,
+    min: 0,
+    max: 100,
+    step: 1,
     section: "primary",
   },
   {
@@ -60,8 +59,8 @@ export const DEMO_MOTION_PARAM_FIELDS = Object.freeze([
 
 export const normalizeDemoMotionParamValue = ({ key, rawValue, currentValue } = {}) => {
   switch (key) {
-    case "kelvin":
-      return toInt(rawValue, DEFAULT_DEMO_MOTION_PROPS.kelvin, 2600, 6600);
+    case "cursorPercent":
+      return toInt(rawValue, DEFAULT_DEMO_MOTION_PROPS.cursorPercent, 0, 100);
     case "videoWidth":
       return toInt(rawValue, DEFAULT_DEMO_MOTION_PROPS.videoWidth, 256, 3840);
     case "videoHeight":
