@@ -29,19 +29,28 @@ const toProgress01 = (frame, frameCount) => {
 };
 
 const easeOutPow = (t, power) => 1 - (1 - clamp(t, 0, 1)) ** power;
-const easeInOutPow = (t, power) => {
-  const x = clamp(t, 0, 1);
-  if (x < 0.5) {
-    return ((2 * x) ** power) / 2;
-  }
-  return 1 - ((2 * (1 - x)) ** power) / 2;
-};
+const PHASE_THREE_TARGET_PERCENT = 95;
+const PHASE_THREE_EASE_POWER = 3;
+const PHASE_THREE_MOVE_PORTION = 2 / 3;
 
-const normalizeEaseType = (value, fallback) => {
-  if (value === "linear" || value === "easeOut" || value === "easeInOut") {
-    return value;
+const resolvePhaseThreeMoveFrames = (phaseThreeFrames) =>
+  Math.max(1, Math.round(Math.max(1, phaseThreeFrames) * PHASE_THREE_MOVE_PORTION));
+
+const resolveParamWithLegacyFallback = ({ modernValue, legacyValue, defaultValue }) => {
+  const modern = Number(modernValue);
+  const legacy = Number(legacyValue);
+  const hasModern = Number.isFinite(modern);
+  const hasLegacy = Number.isFinite(legacy);
+
+  if (hasModern && (!hasLegacy || modern !== defaultValue)) {
+    return modern;
   }
-  return fallback;
+
+  if (hasLegacy) {
+    return legacy;
+  }
+
+  return defaultValue;
 };
 
 const resolvePhaseTimingFrames = ({ fps, sceneContext }) => {
@@ -50,18 +59,18 @@ const resolvePhaseTimingFrames = ({ fps, sceneContext }) => {
     sceneContext.phaseOneDurationSeconds * resolvedFps,
     resolvedFps
   );
-  const pauseFrames = Math.max(0, Math.round(sceneContext.pauseSeconds * resolvedFps));
-  const phaseTwoFrames = toPositiveFrames(
-    sceneContext.phaseTwoDurationSeconds * resolvedFps,
+  const phaseTwoPauseFrames = Math.max(0, Math.round(sceneContext.phaseTwoPauseSeconds * resolvedFps));
+  const phaseThreeFrames = toPositiveFrames(
+    sceneContext.phaseThreeDurationSeconds * resolvedFps,
     resolvedFps
   );
-  const durationInFrames = Math.max(1, phaseOneFrames + pauseFrames + phaseTwoFrames);
+  const durationInFrames = Math.max(1, phaseOneFrames + phaseTwoPauseFrames + phaseThreeFrames);
 
   return {
     resolvedFps,
     phaseOneFrames,
-    pauseFrames,
-    phaseTwoFrames,
+    phaseTwoPauseFrames,
+    phaseThreeFrames,
     durationInFrames,
   };
 };
@@ -69,18 +78,16 @@ const resolvePhaseTimingFrames = ({ fps, sceneContext }) => {
 const resolveHandleLeftPercentForFrame = ({
   frame,
   phaseOneFrames,
-  pauseFrames,
-  phaseTwoFrames,
+  phaseTwoPauseFrames,
+  phaseThreeFrames,
   startPercent,
   phaseOneTargetPercent,
-  endPercent,
+  phaseThreeTargetPercent,
   phaseOneEasePower,
-  phaseTwoEaseType,
-  phaseTwoEasePower,
 }) => {
   const safeFrame = Math.max(0, Math.round(Number(frame) || 0));
   const phaseOneEndFrame = phaseOneFrames - 1;
-  const pauseEndFrame = phaseOneFrames + pauseFrames - 1;
+  const phaseTwoPauseEndFrame = phaseOneFrames + phaseTwoPauseFrames - 1;
 
   if (safeFrame <= phaseOneEndFrame) {
     const phaseOneProgress = toProgress01(safeFrame, phaseOneFrames);
@@ -88,19 +95,19 @@ const resolveHandleLeftPercentForFrame = ({
     return startPercent + (phaseOneTargetPercent - startPercent) * eased;
   }
 
-  if (safeFrame <= pauseEndFrame) {
+  if (safeFrame <= phaseTwoPauseEndFrame) {
     return phaseOneTargetPercent;
   }
 
-  const phaseTwoFrame = safeFrame - (pauseEndFrame + 1);
-  const phaseProgress = toProgress01(phaseTwoFrame, phaseTwoFrames);
-  const eased =
-    phaseTwoEaseType === "linear"
-      ? phaseProgress
-      : phaseTwoEaseType === "easeInOut"
-        ? easeInOutPow(phaseProgress, phaseTwoEasePower)
-        : easeOutPow(phaseProgress, phaseTwoEasePower);
-  return phaseOneTargetPercent + (endPercent - phaseOneTargetPercent) * eased;
+  const phaseThreeFrame = safeFrame - (phaseTwoPauseEndFrame + 1);
+  const phaseThreeMoveFrames = resolvePhaseThreeMoveFrames(phaseThreeFrames);
+  if (phaseThreeFrame >= phaseThreeMoveFrames) {
+    return phaseThreeTargetPercent;
+  }
+
+  const phaseProgress = toProgress01(phaseThreeFrame, phaseThreeMoveFrames);
+  const eased = easeOutPow(phaseProgress, PHASE_THREE_EASE_POWER);
+  return phaseOneTargetPercent + (phaseThreeTargetPercent - phaseOneTargetPercent) * eased;
 };
 
 export const resolveDemoMotionSceneContext = (pluginParams = {}) => {
@@ -119,16 +126,21 @@ export const resolveDemoMotionSceneContext = (pluginParams = {}) => {
     0.05,
     30
   );
-  const pauseSeconds = clamp(
-    toNumber(pluginParams.pauseSeconds, DEFAULT_DEMO_MOTION_PROPS.pauseSeconds),
+  const phaseTwoPauseSeconds = clamp(
+    resolveParamWithLegacyFallback({
+      modernValue: pluginParams.phaseTwoPauseSeconds,
+      legacyValue: pluginParams.pauseSeconds,
+      defaultValue: DEFAULT_DEMO_MOTION_PROPS.phaseTwoPauseSeconds,
+    }),
     0,
     10
   );
-  const phaseTwoDurationSeconds = clamp(
-    toNumber(
-      pluginParams.phaseTwoDurationSeconds,
-      DEFAULT_DEMO_MOTION_PROPS.phaseTwoDurationSeconds
-    ),
+  const phaseThreeDurationSeconds = clamp(
+    resolveParamWithLegacyFallback({
+      modernValue: pluginParams.phaseThreeDurationSeconds,
+      legacyValue: pluginParams.phaseTwoDurationSeconds,
+      defaultValue: DEFAULT_DEMO_MOTION_PROPS.phaseThreeDurationSeconds,
+    }),
     0.05,
     30
   );
@@ -145,24 +157,19 @@ export const resolveDemoMotionSceneContext = (pluginParams = {}) => {
       DEFAULT_DEMO_MOTION_PROPS.maxPercent
     ),
     phaseOneDurationSeconds,
-    pauseSeconds,
-    phaseTwoDurationSeconds,
+    phaseTwoPauseSeconds,
+    // Backward-compatible alias for any code that still expects the old key.
+    pauseSeconds: phaseTwoPauseSeconds,
+    phaseThreeDurationSeconds,
+    // Backward-compatible alias for any code that still expects the old key.
+    phaseTwoDurationSeconds: phaseThreeDurationSeconds,
     phaseOneEasePower: clamp(
       toNumber(pluginParams.phaseOneEasePower, DEFAULT_DEMO_MOTION_PROPS.phaseOneEasePower),
       1,
       6
     ),
-    phaseTwoEasePower: clamp(
-      toNumber(pluginParams.phaseTwoEasePower, DEFAULT_DEMO_MOTION_PROPS.phaseTwoEasePower),
-      1,
-      6
-    ),
-    phaseTwoEaseType: normalizeEaseType(
-      pluginParams.phaseTwoEaseType,
-      DEFAULT_DEMO_MOTION_PROPS.phaseTwoEaseType
-    ),
     majorTickValues: DEFAULT_DEMO_MOTION_PROPS.majorTickValues,
-    durationSeconds: phaseOneDurationSeconds + pauseSeconds + phaseTwoDurationSeconds,
+    durationSeconds: phaseOneDurationSeconds + phaseTwoPauseSeconds + phaseThreeDurationSeconds,
     layout: {
       videoWidth,
       videoHeight,
@@ -189,7 +196,7 @@ export const buildDemoMotionSceneProps = ({
     fps,
     sceneContext: resolvedContext,
   });
-  const { phaseOneFrames, pauseFrames, phaseTwoFrames } = resolvePhaseTimingFrames({
+  const { phaseOneFrames, phaseTwoPauseFrames, phaseThreeFrames } = resolvePhaseTimingFrames({
     fps,
     sceneContext: resolvedContext,
   });
@@ -206,33 +213,48 @@ export const buildDemoMotionSceneProps = ({
     startPercent,
     endPercent
   );
+  const phaseThreeTargetPercent = clamp(PHASE_THREE_TARGET_PERCENT, startPercent, endPercent);
 
   const phaseOneEndFrame = phaseOneFrames - 1;
-  const pauseEndFrame = phaseOneFrames + pauseFrames - 1;
+  const phaseTwoPauseEndFrame = phaseOneFrames + phaseTwoPauseFrames - 1;
+  const phaseThreeStartFrame = phaseTwoPauseEndFrame + 1;
+  const phaseThreeMoveFrames = resolvePhaseThreeMoveFrames(phaseThreeFrames);
   const phaseOneProgress = safeFrame <= phaseOneEndFrame ? toProgress01(safeFrame, phaseOneFrames) : 1;
-  const phaseTwoEaseType = normalizeEaseType(
-    resolvedContext.phaseTwoEaseType,
-    DEFAULT_DEMO_MOTION_PROPS.phaseTwoEaseType
-  );
+  const phaseThreeProgress =
+    safeFrame < phaseThreeStartFrame
+      ? 0
+      : clamp(
+          (safeFrame - phaseThreeStartFrame) / Math.max(1, Math.max(1, phaseThreeFrames) - 1),
+          0,
+          1
+        );
+  const phaseThreeMoveProgress =
+    safeFrame < phaseThreeStartFrame
+      ? 0
+      : clamp(
+          (safeFrame - phaseThreeStartFrame) / Math.max(1, phaseThreeMoveFrames - 1),
+          0,
+          1
+        );
 
   const handleLeftPercent = resolveHandleLeftPercentForFrame({
     frame: safeFrame,
     phaseOneFrames,
-    pauseFrames,
-    phaseTwoFrames,
+    phaseTwoPauseFrames,
+    phaseThreeFrames,
     startPercent,
     phaseOneTargetPercent,
-    endPercent,
+    phaseThreeTargetPercent,
     phaseOneEasePower: resolvedContext.phaseOneEasePower,
-    phaseTwoEaseType,
-    phaseTwoEasePower: resolvedContext.phaseTwoEasePower,
   });
 
-  const phaseTwoStartFrame = pauseEndFrame + 1;
+  const phaseThreeStartFrameForCamera = phaseTwoPauseEndFrame + 1;
   const cameraMotionStartFrame =
-    pauseFrames > 0 ? phaseOneFrames + Math.floor((pauseFrames * 2) / 3) : phaseTwoStartFrame;
+    phaseTwoPauseFrames > 0
+      ? phaseOneFrames + Math.floor((phaseTwoPauseFrames * 2) / 3)
+      : phaseThreeStartFrameForCamera;
   const rawCameraMotionEndFrame =
-    phaseTwoStartFrame + Math.floor((Math.max(1, phaseTwoFrames) - 1) * (2 / 3));
+    phaseThreeStartFrameForCamera + Math.floor((Math.max(1, phaseThreeFrames) - 1) * PHASE_THREE_MOVE_PORTION);
   const cameraMotionEndFrame = Math.max(cameraMotionStartFrame, rawCameraMotionEndFrame);
   const cameraTrackedFrame = clamp(safeFrame, cameraMotionStartFrame, cameraMotionEndFrame);
   const cameraReengageProgress =
@@ -248,14 +270,12 @@ export const buildDemoMotionSceneProps = ({
   const cameraTrackedHandleLeftPercent = resolveHandleLeftPercentForFrame({
     frame: cameraTrackedFrame,
     phaseOneFrames,
-    pauseFrames,
-    phaseTwoFrames,
+    phaseTwoPauseFrames,
+    phaseThreeFrames,
     startPercent,
     phaseOneTargetPercent,
-    endPercent,
+    phaseThreeTargetPercent,
     phaseOneEasePower: resolvedContext.phaseOneEasePower,
-    phaseTwoEaseType,
-    phaseTwoEasePower: resolvedContext.phaseTwoEasePower,
   });
 
   return {
@@ -264,6 +284,8 @@ export const buildDemoMotionSceneProps = ({
     frame: safeFrame,
     progress,
     phaseOneProgress,
+    phaseThreeProgress,
+    phaseThreeMoveProgress,
     cameraReengageProgress,
     cameraTrackedHandleLeftPercent,
     handleLeftPercent: clamp(handleLeftPercent, startPercent, endPercent),

@@ -65,6 +65,7 @@ const TICK_STEP = 2;
 const CAMERA_START_SCALE = 1.34;
 const CAMERA_MAX_TRACK_X = 460;
 const CAMERA_REENGAGE_END_SCALE = 1.18;
+const CAMERA_PHASE_THREE_TRACK_LEFT_OFFSET = 2;
 
 export const DemoMotionScene = ({
   minPercent,
@@ -75,6 +76,8 @@ export const DemoMotionScene = ({
   cameraReengageProgress,
   phaseOneTargetPercent,
   phaseOneProgress,
+  phaseThreeProgress,
+  phaseThreeMoveProgress,
   progress,
   onAutoLayoutReady,
 }) => {
@@ -102,6 +105,8 @@ export const DemoMotionScene = ({
     maxPercent
   );
   const safePhaseOneProgress = clamp(phaseOneProgress ?? 1, 0, 1);
+  const safePhaseThreeProgress = clamp(phaseThreeProgress ?? 0, 0, 1);
+  const safePhaseThreeMoveProgress = clamp(phaseThreeMoveProgress ?? safePhaseThreeProgress, 0, 1);
   const safeCameraReengageProgress = clamp(cameraReengageProgress ?? 0, 0, 1);
   const cameraPullbackT = smoothstep(safePhaseOneProgress);
   const cameraReengageT = smoothstep(safeCameraReengageProgress);
@@ -109,12 +114,20 @@ export const DemoMotionScene = ({
     * lerp(1, CAMERA_REENGAGE_END_SCALE, cameraReengageT);
   const cameraFollowWeight = 1 - cameraPullbackT;
   const handleRatio = clamp(toPercent(safeHandleLeft, minPercent, maxPercent) / 100, 0, 1);
-  const trackedHandleRatio = clamp(toPercent(safeTrackedHandleLeft, minPercent, maxPercent) / 100, 0, 1);
+  const phaseThreeCameraOffsetWeight = smoothstep(safePhaseThreeMoveProgress);
+  const trackedCameraTargetPercent = clamp(
+    safeTrackedHandleLeft - CAMERA_PHASE_THREE_TRACK_LEFT_OFFSET * phaseThreeCameraOffsetWeight,
+    minPercent,
+    maxPercent
+  );
+  const trackedHandleRatio = clamp(toPercent(trackedCameraTargetPercent, minPercent, maxPercent) / 100, 0, 1);
   const phaseOneAnchorRatio = clamp(
     toPercent(phaseOneTargetPercent ?? 70, minPercent, maxPercent) / 100,
     0,
     1
   );
+  const phaseOneAnchorPercent = clamp(phaseOneTargetPercent ?? 70, minPercent, maxPercent);
+  const phaseOneAnchorLeft = toPercent(phaseOneAnchorPercent, minPercent, maxPercent);
   const cameraTranslateX =
     (0.5 - handleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraFollowWeight
     + (0.5 - trackedHandleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraReengageT;
@@ -125,6 +138,14 @@ export const DemoMotionScene = ({
   const rulerBottomColor = mixHex(currentPercentColor, "#0f172a", 0.12);
   const handleTopColor = mixHex(currentPercentColor, "#ffffff", 0.22);
   const handleBottomColor = mixHex(currentPercentColor, "#0f172a", 0.16);
+  const phaseAnchorReveal = smoothstep(clamp(safePhaseThreeProgress / 0.2, 0, 1));
+  const cursorDistanceToAnchor = Math.abs(toPercent(safeHandleLeft, minPercent, maxPercent) - phaseOneAnchorLeft);
+  const overlapT = clamp(1 - cursorDistanceToAnchor / 8, 0, 1) * phaseAnchorReveal;
+  const overlapRelease = smoothstep(safePhaseThreeMoveProgress);
+  const overlapWeight = overlapT * (1 - overlapRelease * 0.15);
+  const cursorAvoidDirection = safeHandleLeft >= phaseOneAnchorPercent ? 1 : -1;
+  const cursorLabelShiftX = lerp(0, 34 * cursorAvoidDirection, overlapWeight);
+  const cursorLabelShiftY = lerp(0, -6, overlapWeight);
   const phase = safeProgress * Math.PI * 2;
   const tiltRotateY = lerp(20, 0, safePhaseOneProgress);
   const tiltRotateX = Math.cos(phase + Math.PI * 0.1) * 4.25;
@@ -188,7 +209,21 @@ export const DemoMotionScene = ({
                       />
                     );
                   })}
+
                 </div>
+
+                <div
+                  className="absolute bottom-[10px] top-[10px] w-[4px]"
+                  style={{
+                    left: `${phaseOneAnchorLeft}%`,
+                    opacity: phaseAnchorReveal,
+                    transform: `translateX(-50%) scaleY(${lerp(0.3, 1, phaseAnchorReveal)})`,
+                    transformOrigin: "50% 100%",
+                    background:
+                      "repeating-linear-gradient(180deg, rgba(255,255,255,0.98) 0 7px, rgba(255,255,255,0.22) 7px 12px)",
+                    boxShadow: "0 0 0.5px rgba(255,255,255,0.95), 0 0 10px rgba(255,255,255,0.8)",
+                  }}
+                />
 
                 <div
                   className="absolute top-1/2 h-[96px] w-[28px] -translate-y-1/2 rounded-[10px] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
@@ -198,19 +233,35 @@ export const DemoMotionScene = ({
                   }}
                 >
                   <div
-                    className="absolute bottom-[calc(100%+12px)] left-1/2 -translate-x-1/2 whitespace-nowrap text-[30px] font-black tracking-[-0.02em]"
+                    className="absolute bottom-[calc(100%+12px)] left-1/2 whitespace-nowrap text-[60px] font-black tracking-[-0.02em]"
                     style={{
                       color: currentPercentColor,
                       textShadow: "0 2px 6px rgba(15,23,42,0.38)",
+                      transform: `translateX(calc(-50% + ${cursorLabelShiftX}px)) translateY(${cursorLabelShiftY}px)`,
+                      transformOrigin: "center bottom",
                     }}
                   >
                     {currentPercent}%
                   </div>
                 </div>
+
+                <div
+                  className="pointer-events-none absolute bottom-[calc(100%+12px)] whitespace-nowrap text-[60px] font-black tracking-[-0.02em]"
+                  style={{
+                    left: `${phaseOneAnchorLeft}%`,
+                    opacity: phaseAnchorReveal,
+                    color: "rgba(255,255,255,0.98)",
+                    textShadow: "0 2px 6px rgba(15,23,42,0.45), 0 0 8px rgba(255,255,255,0.35)",
+                    transform: `translateX(-50%) translateY(${10 - phaseAnchorReveal * 10}px) scale(${lerp(0.92, 1, phaseAnchorReveal)})`,
+                    transformOrigin: "center bottom",
+                  }}
+                >
+                  {Math.round(phaseOneAnchorPercent)}%
+                </div>
               </div>
 
               <div
-                className="relative mt-4 h-7 text-[19px] font-semibold tracking-[-0.015em] text-white/92"
+                className="relative mt-4 h-7 text-[21px] font-semibold tracking-[-0.015em] text-white/92"
                 style={{ textShadow: "0 1px 4px rgba(15,23,42,0.5)" }}
               >
                 {safeMajorTickValues.map((value) => (

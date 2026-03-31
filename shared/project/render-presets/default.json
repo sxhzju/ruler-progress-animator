@@ -1,11 +1,9 @@
 {
   "phaseOneTargetPercent": 70,
   "phaseOneDurationSeconds": 3.75,
-  "pauseSeconds": 0.45,
-  "phaseTwoDurationSeconds": 1.8,
+  "phaseTwoPauseSeconds": 0.45,
+  "phaseThreeDurationSeconds": 1.8,
   "phaseOneEasePower": 3,
-  "phaseTwoEaseType": "easeOut",
-  "phaseTwoEasePower": 1.5,
   "videoWidth": 1080,
   "videoHeight": 1080
 }
