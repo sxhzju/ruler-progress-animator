@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 
 const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 const lerp = (start, end, ratio) => start + (end - start) * clamp(ratio, 0, 1);
@@ -81,10 +81,6 @@ export const DemoMotionScene = ({
   progress,
   onAutoLayoutReady,
 }) => {
-  const cursorLabelRef = useRef(null);
-  const seedanceLabelRef = useRef(null);
-  const [seedanceRevealPercent, setSeedanceRevealPercent] = useState(0);
-
   useEffect(() => {
     onAutoLayoutReady?.();
   }, [onAutoLayoutReady]);
@@ -135,6 +131,8 @@ export const DemoMotionScene = ({
   const seedanceRevealEndPercent = clamp(60, minPercent, maxPercent);
   const seedanceLabelPercent = lerp(minPercent, seedanceRevealEndPercent, 0.5);
   const seedanceLabelLeft = toPercent(seedanceLabelPercent, minPercent, maxPercent);
+  const seedanceRevealBoundary = toPercent(safeHandleLeft, minPercent, maxPercent);
+  const seedanceRevealClipPath = `inset(0 ${100 - seedanceRevealBoundary}% 0 0)`;
   const cameraTranslateX =
     (0.5 - handleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraFollowWeight
     + (0.5 - trackedHandleRatio) * CAMERA_MAX_TRACK_X * 2 * cameraReengageT;
@@ -162,34 +160,6 @@ export const DemoMotionScene = ({
     24 + Math.abs(tiltRotateY) * 1.8
   }px rgba(15,23,42,0.18))`;
   const sheenAngle = 112 + tiltRotateY * 2.2;
-
-  useEffect(() => {
-    const cursorLabelNode = cursorLabelRef.current;
-    const seedanceLabelNode = seedanceLabelRef.current;
-
-    if (!cursorLabelNode || !seedanceLabelNode) {
-      return;
-    }
-
-    const cursorRect = cursorLabelNode.getBoundingClientRect();
-    const seedanceRect = seedanceLabelNode.getBoundingClientRect();
-    const revealWidth = clamp(cursorRect.right - seedanceRect.left, 0, seedanceRect.width);
-    const nextRevealPercent = seedanceRect.width <= 0 ? 0 : (revealWidth / seedanceRect.width) * 100;
-
-    setSeedanceRevealPercent((prev) => (Math.abs(prev - nextRevealPercent) < 0.1 ? prev : nextRevealPercent));
-  }, [
-    cameraScale,
-    cameraTranslateX,
-    currentPercent,
-    cursorLabelShiftX,
-    cursorLabelShiftY,
-    safeHandleLeft,
-    seedanceLabelLeft,
-    tiltRotateX,
-    tiltRotateY,
-    tiltScale,
-    tiltTranslateY,
-  ]);
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-transparent">
@@ -261,15 +231,19 @@ export const DemoMotionScene = ({
                 />
 
                 <div
-                  className="absolute top-1/2 h-[96px] w-[28px] -translate-y-1/2 rounded-[10px] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
+                  className="absolute top-1/2 h-[96px] w-[28px] -translate-y-1/2"
                   style={{
                     left: `calc(${toPercent(safeHandleLeft, minPercent, maxPercent)}% - 14px)`,
                     zIndex: 20,
-                    background: `linear-gradient(180deg, ${handleTopColor} 0%, ${handleBottomColor} 100%)`,
                   }}
                 >
                   <div
-                    ref={cursorLabelRef}
+                    className="absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
+                    style={{
+                      background: `linear-gradient(180deg, ${handleTopColor} 0%, ${handleBottomColor} 100%)`,
+                    }}
+                  />
+                  <div
                     className="absolute bottom-[calc(100%+12px)] left-1/2 whitespace-nowrap text-[60px] font-black tracking-[-0.02em]"
                     style={{
                       zIndex: 30,
@@ -298,19 +272,24 @@ export const DemoMotionScene = ({
                 </div>
 
                 <div
-                  ref={seedanceLabelRef}
-                  className="pointer-events-none absolute bottom-[calc(100%+12px)] whitespace-nowrap text-[60px] font-black tracking-[-0.02em]"
+                  className="pointer-events-none absolute bottom-[calc(100%+12px)] left-0 right-0 h-[72px]"
                   style={{
-                    left: `${seedanceLabelLeft}%`,
                     zIndex: 10,
-                    color: "white",
-                    textShadow: "0 2px 6px rgba(15,23,42,0.38)",
-                    transform: "translateX(-50%)",
-                    transformOrigin: "center bottom",
-                    clipPath: `inset(0 ${100 - seedanceRevealPercent}% 0 0)`,
+                    clipPath: seedanceRevealClipPath,
                   }}
                 >
-                  Seedance 2.0
+                  <div
+                    className="absolute whitespace-nowrap text-[60px] font-black tracking-[-0.02em]"
+                    style={{
+                      left: `${seedanceLabelLeft}%`,
+                      color: "white",
+                      textShadow: "0 2px 6px rgba(15,23,42,0.38)",
+                      transform: "translateX(-50%)",
+                      transformOrigin: "center bottom",
+                    }}
+                  >
+                    Seedance 2.0
+                  </div>
                 </div>
               </div>
 
