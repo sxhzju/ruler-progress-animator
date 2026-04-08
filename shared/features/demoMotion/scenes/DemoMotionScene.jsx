@@ -139,9 +139,9 @@ export const DemoMotionScene = ({
   const safeProgress = clamp(progress ?? 0, 0, 1);
   const currentPercent = Math.round(safeHandleLeft);
   const currentPercentColor = toAnchoredColor(handleRatio, phaseOneAnchorRatio);
-  const rulerTopColor = mixHex(currentPercentColor, "#ffffff", 0.3);
+  const rulerTopColor = mixHex(currentPercentColor, "#000000", 0.3);
   const rulerBottomColor = mixHex(currentPercentColor, "#0f172a", 0.12);
-  const handleTopColor = mixHex(currentPercentColor, "#ffffff", 0.22);
+  const handleTopColor = mixHex(currentPercentColor, "#000000", 0.22);
   const handleBottomColor = mixHex(currentPercentColor, "#0f172a", 0.16);
   const phaseAnchorReveal = smoothstep(clamp(safePhaseThreeProgress / 0.2, 0, 1));
   const cursorDistanceToAnchor = Math.abs(toPercent(safeHandleLeft, minPercent, maxPercent) - phaseOneAnchorLeft);
@@ -185,13 +185,13 @@ export const DemoMotionScene = ({
                 style={{
                   background: `linear-gradient(180deg, ${rulerTopColor} 0%, ${rulerBottomColor} 100%)`,
                   boxShadow:
-                    "inset 0 0 0 5px rgba(255,255,255,0.92), 0 0 0 0.66px rgba(0,0,0,0.1), 0 12px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.03)",
+                    "inset 0 0 0 5px rgba(0,0,0,0.92), 0 0 0 0.66px rgba(0,0,0,0.1), 0 12px 25px rgba(0,0,0,0.08), 0 4px 10px rgba(0,0,0,0.03)",
                 }}
               >
                 <div
                   className="pointer-events-none absolute inset-0 rounded-[24px]"
                   style={{
-                    background: `linear-gradient(${sheenAngle}deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.1) 34%, rgba(255,255,255,0) 60%)`,
+                    background: `linear-gradient(${sheenAngle}deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.1) 34%, rgba(0,0,0,0) 60%)`,
                     mixBlendMode: "screen",
                   }}
                 />
@@ -205,7 +205,7 @@ export const DemoMotionScene = ({
                     return (
                       <div
                         key={value}
-                        className="absolute bottom-0 w-[2px] rounded-full bg-white/78"
+                        className="absolute bottom-0 w-[2px] rounded-full bg-black/78"
                         style={{
                           left: `${left}%`,
                           height: longTick ? 21 : 14,
@@ -225,8 +225,8 @@ export const DemoMotionScene = ({
                     transform: `translateX(-50%) scaleY(${lerp(0.3, 1, phaseAnchorReveal)})`,
                     transformOrigin: "50% 100%",
                     background:
-                      "repeating-linear-gradient(180deg, rgba(255,255,255,0.98) 0 7px, rgba(255,255,255,0.22) 7px 12px)",
-                    boxShadow: "0 0 0.5px rgba(255,255,255,0.95), 0 0 10px rgba(255,255,255,0.8)",
+                      "repeating-linear-gradient(180deg, rgba(0,0,0,0.98) 0 7px, rgba(0,0,0,0.22) 7px 12px)",
+                    boxShadow: "0 0 0.5px rgba(0,0,0,0.95), 0 0 10px rgba(0,0,0,0.8)",
                   }}
                 />
 
@@ -238,7 +238,7 @@ export const DemoMotionScene = ({
                   }}
                 >
                   <div
-                    className="absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_3px_white,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
+                    className="absolute inset-0 rounded-[10px] shadow-[inset_0_0_0_3px_black,0_0_0_0.66px_rgba(0,0,0,0.12),0_2px_4px_rgba(0,0,0,0.08),0_3px_8px_2px_rgba(0,0,0,0.08)]"
                     style={{
                       background: `linear-gradient(180deg, ${handleTopColor} 0%, ${handleBottomColor} 100%)`,
                     }}
@@ -262,8 +262,8 @@ export const DemoMotionScene = ({
                   style={{
                     left: `${phaseOneAnchorLeft}%`,
                     opacity: phaseAnchorReveal,
-                    color: "rgba(255,255,255,0.98)",
-                    textShadow: "0 2px 6px rgba(15,23,42,0.45), 0 0 8px rgba(255,255,255,0.35)",
+                    color: "rgba(0,0,0,0.98)",
+                    textShadow: "0 2px 6px rgba(15,23,42,0.45), 0 0 8px rgba(0,0,0,0.35)",
                     transform: `translateX(-50%) translateY(${10 - phaseAnchorReveal * 10}px) scale(${lerp(0.92, 1, phaseAnchorReveal)})`,
                     transformOrigin: "center bottom",
                   }}
@@ -282,7 +282,7 @@ export const DemoMotionScene = ({
                     className="absolute whitespace-nowrap text-[60px] font-black tracking-[-0.02em]"
                     style={{
                       left: `${seedanceLabelLeft}%`,
-                      color: "white",
+                      color: "black",
                       textShadow: "0 2px 6px rgba(15,23,42,0.38)",
                       transform: "translateX(-50%)",
                       transformOrigin: "center bottom",
@@ -294,7 +294,7 @@ export const DemoMotionScene = ({
               </div>
 
               <div
-                className="relative mt-4 h-7 text-[21px] font-semibold tracking-[-0.015em] text-white/92"
+                className="relative mt-4 h-7 text-[21px] font-semibold tracking-[-0.015em] text-black/92"
                 style={{ textShadow: "0 1px 4px rgba(15,23,42,0.5)" }}
               >
                 {safeMajorTickValues.map((value) => (
