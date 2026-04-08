@@ -13,6 +13,18 @@ const toNumber = (value, fallback) => {
 const toInt = (value, fallback, min, max) =>
   Math.round(clamp(toNumber(value, fallback), min, max));
 
+const toString = (value, fallback) => {
+  if (typeof value === "string") {
+    return value;
+  }
+
+  if (value == null) {
+    return fallback;
+  }
+
+  return String(value);
+};
+
 const toPositiveFrames = (value, fallback) => {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) {
@@ -29,7 +41,6 @@ const toProgress01 = (frame, frameCount) => {
 };
 
 const easeOutPow = (t, power) => 1 - (1 - clamp(t, 0, 1)) ** power;
-const PHASE_THREE_TARGET_PERCENT = 95;
 const PHASE_THREE_EASE_POWER = 3;
 const PHASE_THREE_MOVE_PORTION = 2 / 3;
 
@@ -48,6 +59,25 @@ const resolveParamWithLegacyFallback = ({ modernValue, legacyValue, defaultValue
 
   if (hasLegacy) {
     return legacy;
+  }
+
+  return defaultValue;
+};
+
+const resolveStringParamWithLegacyFallback = ({ modernValue, legacyValue, defaultValue }) => {
+  const hasModern = typeof modernValue === "string";
+  const hasLegacy = typeof legacyValue === "string";
+
+  if (hasModern && (!hasLegacy || modernValue !== defaultValue)) {
+    return modernValue;
+  }
+
+  if (hasLegacy) {
+    return legacyValue;
+  }
+
+  if (hasModern) {
+    return modernValue;
   }
 
   return defaultValue;
@@ -156,6 +186,22 @@ export const resolveDemoMotionSceneContext = (pluginParams = {}) => {
       DEFAULT_DEMO_MOTION_PROPS.minPercent,
       DEFAULT_DEMO_MOTION_PROPS.maxPercent
     ),
+    phaseThreeTargetPercent: clamp(
+      toNumber(
+        pluginParams.phaseThreeTargetPercent,
+        DEFAULT_DEMO_MOTION_PROPS.phaseThreeTargetPercent
+      ),
+      DEFAULT_DEMO_MOTION_PROPS.minPercent,
+      DEFAULT_DEMO_MOTION_PROPS.maxPercent
+    ),
+    labelText: toString(
+      resolveStringParamWithLegacyFallback({
+        modernValue: pluginParams.labelText,
+        legacyValue: pluginParams.seedanceLabelText,
+        defaultValue: DEFAULT_DEMO_MOTION_PROPS.labelText,
+      }),
+      DEFAULT_DEMO_MOTION_PROPS.labelText
+    ),
     phaseOneDurationSeconds,
     phaseTwoPauseSeconds,
     // Backward-compatible alias for any code that still expects the old key.
@@ -163,11 +209,7 @@ export const resolveDemoMotionSceneContext = (pluginParams = {}) => {
     phaseThreeDurationSeconds,
     // Backward-compatible alias for any code that still expects the old key.
     phaseTwoDurationSeconds: phaseThreeDurationSeconds,
-    phaseOneEasePower: clamp(
-      toNumber(pluginParams.phaseOneEasePower, DEFAULT_DEMO_MOTION_PROPS.phaseOneEasePower),
-      1,
-      6
-    ),
+    phaseOneEasePower: DEFAULT_DEMO_MOTION_PROPS.phaseOneEasePower,
     majorTickValues: DEFAULT_DEMO_MOTION_PROPS.majorTickValues,
     durationSeconds: phaseOneDurationSeconds + phaseTwoPauseSeconds + phaseThreeDurationSeconds,
     layout: {
@@ -213,7 +255,14 @@ export const buildDemoMotionSceneProps = ({
     startPercent,
     endPercent
   );
-  const phaseThreeTargetPercent = clamp(PHASE_THREE_TARGET_PERCENT, startPercent, endPercent);
+  const phaseThreeTargetPercent = clamp(
+    toNumber(
+      resolvedContext.phaseThreeTargetPercent,
+      DEFAULT_DEMO_MOTION_PROPS.phaseThreeTargetPercent
+    ),
+    startPercent,
+    endPercent
+  );
 
   const phaseOneEndFrame = phaseOneFrames - 1;
   const phaseTwoPauseEndFrame = phaseOneFrames + phaseTwoPauseFrames - 1;

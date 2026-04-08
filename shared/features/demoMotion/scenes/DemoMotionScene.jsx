@@ -66,11 +66,50 @@ const CAMERA_START_SCALE = 1.34;
 const CAMERA_MAX_TRACK_X = 460;
 const CAMERA_REENGAGE_END_SCALE = 1.18;
 const CAMERA_PHASE_THREE_TRACK_LEFT_OFFSET = 2;
+const LABEL_FONT_SIZE_PX = 60;
+const LABEL_LETTER_SPACING_EM = -0.02;
+const LABEL_ASCII_CHAR_WIDTH_EM = 0.6;
+const LABEL_WIDE_CHAR_WIDTH_EM = 1;
+const RULER_MAX_WIDTH_PX = 920;
+const STAGE_HORIZONTAL_PADDING_RATIO = 0.08;
+
+const estimateLabelCharacterWidthPx = (character) => {
+  const codePoint = character.codePointAt(0) ?? 0;
+  const isAscii = codePoint <= 0x7f;
+  const widthEm = isAscii ? LABEL_ASCII_CHAR_WIDTH_EM : LABEL_WIDE_CHAR_WIDTH_EM;
+  return LABEL_FONT_SIZE_PX * widthEm;
+};
+
+const truncateLabelToWidth = (text, maxWidthPx) => {
+  if (typeof text !== "string" || text.length === 0 || maxWidthPx <= 0) {
+    return "";
+  }
+
+  const letterSpacingPx = LABEL_FONT_SIZE_PX * LABEL_LETTER_SPACING_EM;
+  let width = 0;
+  let index = 0;
+  let output = "";
+
+  for (const character of text) {
+    const characterWidth = estimateLabelCharacterWidthPx(character);
+    const nextWidth = width + (index === 0 ? 0 : letterSpacingPx) + characterWidth;
+    if (nextWidth > maxWidthPx) {
+      break;
+    }
+    output += character;
+    width = nextWidth;
+    index += 1;
+  }
+
+  return output;
+};
 
 export const DemoMotionScene = ({
   minPercent,
   maxPercent,
   majorTickValues,
+  layout,
+  labelText,
   handleLeftPercent,
   cameraTrackedHandleLeftPercent,
   cameraReengageProgress,
@@ -122,15 +161,30 @@ export const DemoMotionScene = ({
   );
   const trackedHandleRatio = clamp(toPercent(trackedCameraTargetPercent, minPercent, maxPercent) / 100, 0, 1);
   const phaseOneAnchorRatio = clamp(
-    toPercent(phaseOneTargetPercent ?? 70, minPercent, maxPercent) / 100,
+    toPercent(phaseOneTargetPercent ?? 66, minPercent, maxPercent) / 100,
     0,
     1
   );
-  const phaseOneAnchorPercent = clamp(phaseOneTargetPercent ?? 70, minPercent, maxPercent);
+  const phaseOneAnchorPercent = clamp(phaseOneTargetPercent ?? 66, minPercent, maxPercent);
   const phaseOneAnchorLeft = toPercent(phaseOneAnchorPercent, minPercent, maxPercent);
-  const seedanceRevealEndPercent = clamp(60, minPercent, maxPercent);
-  const seedanceLabelPercent = lerp(minPercent, seedanceRevealEndPercent, 0.5);
-  const seedanceLabelLeft = toPercent(seedanceLabelPercent, minPercent, maxPercent);
+  const leftBoundaryPercentValue = clamp(0, minPercent, maxPercent);
+  const seedanceLabelCenterPercentValue =
+    leftBoundaryPercentValue + (phaseOneAnchorPercent - leftBoundaryPercentValue) * 0.5;
+  const seedanceLabelLeft = toPercent(seedanceLabelCenterPercentValue, minPercent, maxPercent);
+  const seedanceSegmentPercent = Math.max(
+    0,
+    phaseOneAnchorLeft - toPercent(leftBoundaryPercentValue, minPercent, maxPercent)
+  );
+  const resolvedLayoutWidth = clamp(Number(layout?.videoWidth) || 1080, 256, 3840);
+  const rulerWidthPx = Math.min(
+    RULER_MAX_WIDTH_PX,
+    resolvedLayoutWidth * (1 - STAGE_HORIZONTAL_PADDING_RATIO * 2)
+  );
+  const seedanceLabelAvailableWidthPx = (rulerWidthPx * seedanceSegmentPercent) / 100;
+  const visibleLabelText = truncateLabelToWidth(
+    typeof labelText === "string" ? labelText : "vibe-motion",
+    seedanceLabelAvailableWidthPx
+  );
   const seedanceRevealBoundary = toPercent(safeHandleLeft, minPercent, maxPercent);
   const seedanceRevealClipPath = `inset(0 ${100 - seedanceRevealBoundary}% 0 0)`;
   const cameraTranslateX =
@@ -288,7 +342,7 @@ export const DemoMotionScene = ({
                       transformOrigin: "center bottom",
                     }}
                   >
-                    Seedance 2.0
+                    {visibleLabelText}
                   </div>
                 </div>
               </div>

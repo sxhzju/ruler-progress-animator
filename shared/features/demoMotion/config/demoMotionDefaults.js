@@ -16,7 +16,9 @@ export const DEFAULT_DEMO_MOTION_PROPS = Object.freeze({
   videoHeight: 1080,
   minPercent: 0,
   maxPercent: 100,
-  phaseOneTargetPercent: 70,
+  phaseOneTargetPercent: 66,
+  phaseThreeTargetPercent: 88,
+  labelText: "vibe-motion",
   phaseOneDurationSeconds: 3.75,
   phaseTwoPauseSeconds: 0.45,
   phaseThreeDurationSeconds: 1.8,
@@ -32,6 +34,21 @@ export const DEMO_MOTION_PARAM_FIELDS = Object.freeze([
     min: 0,
     max: 100,
     step: 1,
+    section: "primary",
+  },
+  {
+    key: "phaseThreeTargetPercent",
+    label: "phaseThreeTargetPercent",
+    control: "number",
+    min: 0,
+    max: 100,
+    step: 1,
+    section: "primary",
+  },
+  {
+    key: "labelText",
+    label: "labelText",
+    control: "text",
     section: "primary",
   },
   {
@@ -62,14 +79,6 @@ export const DEMO_MOTION_PARAM_FIELDS = Object.freeze([
     section: "primary",
   },
   {
-    key: "phaseOneEasePower",
-    label: "phaseOneEasePower",
-    control: "number",
-    min: 1,
-    max: 6,
-    step: 0.1,
-  },
-  {
     key: "videoWidth",
     label: "videoWidth",
     control: "number",
@@ -91,6 +100,14 @@ export const normalizeDemoMotionParamValue = ({ key, rawValue, currentValue } = 
   switch (key) {
     case "phaseOneTargetPercent":
       return toInt(rawValue, DEFAULT_DEMO_MOTION_PROPS.phaseOneTargetPercent, 0, 100);
+    case "phaseThreeTargetPercent":
+      return toInt(rawValue, DEFAULT_DEMO_MOTION_PROPS.phaseThreeTargetPercent, 0, 100);
+    case "labelText":
+      return typeof rawValue === "string"
+        ? rawValue
+        : rawValue == null
+          ? DEFAULT_DEMO_MOTION_PROPS.labelText
+          : String(rawValue);
     case "phaseOneDurationSeconds":
       return clamp(toNumber(rawValue, DEFAULT_DEMO_MOTION_PROPS.phaseOneDurationSeconds), 0.05, 30);
     case "phaseTwoPauseSeconds":
@@ -105,8 +122,6 @@ export const normalizeDemoMotionParamValue = ({ key, rawValue, currentValue } = 
         0.05,
         30
       );
-    case "phaseOneEasePower":
-      return clamp(toNumber(rawValue, DEFAULT_DEMO_MOTION_PROPS.phaseOneEasePower), 1, 6);
     case "videoWidth":
       return toInt(rawValue, DEFAULT_DEMO_MOTION_PROPS.videoWidth, 256, 3840);
     case "videoHeight":
